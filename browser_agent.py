@@ -35,8 +35,10 @@ def run_dynamic_dom(base_url: str) -> dict:
             page.wait_for_selector("#dynamic-result", state="visible")
             # Wait until the text contains the expected content
             page.wait_for_function(
-                "document.querySelector('#dynamic-result') && "
-                "document.querySelector('#dynamic-result').textContent.trim() === 'Loaded record: DYNAMIC-42'"
+                """() => {
+                    const el = document.querySelector('#dynamic-result');
+                    return el && el.textContent.trim() === 'Loaded record: DYNAMIC-42';
+                }"""
             )
             text = page.locator("#dynamic-result").inner_text().strip()
             success = text == "Loaded record: DYNAMIC-42"
@@ -59,8 +61,10 @@ def run_pagination(base_url: str) -> dict:
             page.click("a#next")
             # Wait for h1 to indicate Page 2 of 2
             page.wait_for_function(
-                "document.querySelector('h1') && "
-                "document.querySelector('h1').textContent.trim() === 'Page 2 of 2'"
+                """() => {
+                    const h1 = document.querySelector('h1');
+                    return h1 && h1.textContent.trim() === 'Page 2 of 2';
+                }"""
             )
             page.wait_for_selector("#page-record", state="visible")
             text = page.locator("#page-record").inner_text().strip()
