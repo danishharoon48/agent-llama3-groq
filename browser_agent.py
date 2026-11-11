@@ -9,10 +9,10 @@ def run_search(base_url: str) -> dict:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            page.goto(base_url)
+            page.goto(base_url, wait_until="domcontentloaded")
             page.fill("input#search", "browser automation")
             page.click("button[type=submit]")
-            page.wait_for_selector("#search-result")
+            page.wait_for_selector("#search-result", state="visible", timeout=10000)
             text = page.locator("#search-result").inner_text().strip()
             success = text == "Found: browser automation"
             return {
@@ -30,15 +30,11 @@ def run_dynamic_dom(base_url: str) -> dict:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            page.goto(f"{base_url}/dynamic")
+            page.goto(f"{base_url}/dynamic", wait_until="domcontentloaded")
             page.click("button#load-record")
-            page.wait_for_selector("#dynamic-result", state="visible")
-            # Wait until the text matches the expected value
             page.wait_for_function(
-                """() => {
-                    const el = document.querySelector('#dynamic-result');
-                    return el && el.innerText.trim() === 'Loaded record: DYNAMIC-42';
-                }"""
+                "document.querySelector('#dynamic-result')?.textContent.trim() === 'Loaded record: DYNAMIC-42'",
+                timeout=10000,
             )
             text = page.locator("#dynamic-result").inner_text().strip()
             success = text == "Loaded record: DYNAMIC-42"
@@ -57,16 +53,18 @@ def run_pagination(base_url: str) -> dict:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            page.goto(f"{base_url}/page/1")
+            page.goto(f"{base_url}/page/1", wait_until="domcontentloaded")
             page.click("a#next")
-            # Wait for h1 to indicate Page 2 of 2
-            page.wait_for_function(
-                """() => {
-                    const h1 = document.querySelector('h1');
-                    return h1 && h1.innerText.trim() === 'Page 2 of 2';
-                }"""
-            )
-            page.wait_for_selector("#page-record", state="visible")
+            page.wait_for_selector("h1", state="visible", timeout=10000)
+            h1_text = page.locator("h1").inner_text().strip()
+            if h1_text != "Page 2 of 2":
+                return {
+                    "scenario": "pagination",
+                    "success": False,
+                    "extracted_text": None,
+                    "final_url": page.url,
+                }
+            page.wait_for_selector("#page-record", state="visible", timeout=10000)
             text = page.locator("#page-record").inner_text().strip()
             success = text == "Record 2 of 2: pagination verified"
             return {
@@ -80,10 +78,9 @@ def run_pagination(base_url: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Browser automation scenarios")
-    parser.add_argument("--base-url", required=True, help="Base URL of the benchmark server")
-    parser.add_argument("--scenario", required=True, choices=["search", "dynamic_dom", "pagination"],
-                        help="Scenario to run")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-url", required=True)
+    parser.add_argument("--scenario", required=True, choices=["search", "dynamic_dom", "pagination"])
     args = parser.parse_args()
 
     if args.scenario == "search":
